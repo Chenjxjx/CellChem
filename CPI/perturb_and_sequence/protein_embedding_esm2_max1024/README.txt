@@ -1,0 +1,1 @@
+Encode proteins by running ../esm2_seq.py and save the results to this path.

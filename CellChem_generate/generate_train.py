@@ -3,6 +3,7 @@ import gc
 import json
 import os
 import random
+import argparse
 from pathlib import Path
 import sys
 import time
@@ -82,6 +83,17 @@ hyperparameter_defaults = dict(
     pre_norm=True,
     amp=True,
 )
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--scenario",
+    type=str,
+    choices=["random", "celltype", "scaffold"],
+    default=None,
+    help="Select training split scenario: random/celltype/scaffold",
+)
+args = parser.parse_args()
+
 run = wandb.init(
     config=hyperparameter_defaults,
     project="scGPT_256_300",
@@ -89,15 +101,22 @@ run = wandb.init(
     settings=wandb.Settings(start_method="fork"),
 )
 config = wandb.config
+
+scenario_to_adata = {
+    "random": "data_generate/clue_cp_level5_prepared_with_cell_rep_generate_random_train.h5ad",
+    "celltype": "data_generate/clue_cp_level5_prepared_with_cell_rep_generate_celltype_train.h5ad",
+    "scaffold": "data_generate/clue_cp_level5_prepared_with_cell_rep_generate_scaffold_train.h5ad",
+}
+if args.scenario is not None:
+    wandb.config.update({"adata_path": scenario_to_adata[args.scenario]}, allow_val_change=True)
+
 if config.load_model is None:
     raise ValueError('no load model in config!')
 print(config)
 
 set_seed(config.seed)
 
-# ---- Fast reproducible seeding for DataLoader (no deterministic slowdown) ----
 def seed_worker(worker_id: int):
-    # Make numpy/python RNG in each worker deterministic across runs.
     worker_seed = (torch.initial_seed() + worker_id) % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
@@ -593,8 +612,6 @@ def masked_cosine_loss(pred: torch.Tensor,
                        eps: float = 1e-8,
                        center: bool = True):
     valid = (~src_key_padding_mask).float()[:,1:] 
-    #print(valid)
-    #print(valid.shape)
 
     pred = pred * valid
     label = label * valid

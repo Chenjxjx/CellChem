@@ -46,24 +46,24 @@ class GeneVocab(SimpleVocab):
             if specials is not None and len(specials) > 0:
                 raise ValueError("receive non-empty specials when init from a Vocab object.")
             super().__init__(tokens=list(_v.get_stoi().keys()))
-            # 保留原有映射
+            # Preserve the original mapping
             self._stoi = _v.get_stoi()
             self._itos = [None] * (max(self._stoi.values()) + 1)
             for t, i in self._stoi.items():
                 self._itos[i] = t
         elif isinstance(gene_list_or_vocab, dict):
-            # 直接从映射构建
+            # Build directly from the mapping
             super().__init__(tokens=[])
             for t, i in sorted(gene_list_or_vocab.items(), key=lambda x: x[1]):
                 self.insert_token(t, i)
         elif isinstance(gene_list_or_vocab, list):
-            # 从基因列表与 specials 构建
+            # Build from the gene list and specials
             _v = self._build_vocab_from_iterator(
                 gene_list_or_vocab,
                 specials=specials,
                 special_first=special_first,
             )
-            # 初始化为 SimpleVocab
+            # Initialize as a SimpleVocab
             super().__init__(tokens=_v, specials=None, special_first=True)
         else:
             raise ValueError("gene_list_or_vocab must be a list, dict, or SimpleVocab object.")
@@ -149,7 +149,7 @@ class GeneVocab(SimpleVocab):
         sorted_by_freq_tuples.sort(key=lambda x: x[1], reverse=True)
         ordered = [tok for tok, freq in sorted_by_freq_tuples if freq >= min_freq]
 
-        # 插入 specials
+        # Insert specials
         specials = specials or []
         if specials:
             if special_first:

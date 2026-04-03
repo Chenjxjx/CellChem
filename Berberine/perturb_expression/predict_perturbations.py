@@ -15,7 +15,6 @@ from torch import nn
 from torch_geometric.data import DataLoader 
 from scipy.sparse import issparse
 
-# 添加路径
 sys.path.append("../../CellChem_generation/")
 try:
     from generate import Generation
@@ -243,9 +242,6 @@ def main():
     args = parser.parse_args()
     
     if not torch.cuda.is_available():
-        print("\n!!!!!!!!!!!!!!! FATAL ERROR !!!!!!!!!!!!!!!")
-        print("torch.cuda.is_available() returned False.")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
         sys.exit(1)
     
     CONFIG["device"] = "cuda"

@@ -1,1 +1,1 @@
-run ../test.py and ../test_add.py to get results
+run ../test.py to get results

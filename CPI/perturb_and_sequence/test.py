@@ -19,11 +19,11 @@ decay_interval = 5
 lr_decay = 1.0
 iteration = 300
 kernel_size = 7
-device = 'cuda'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 encoder = Encoder(protein_dim, hid_dim, n_layers, kernel_size, dropout, device)
 config_file = './config_mg.yaml'
 config = yaml.load(open(config_file, "r"), Loader=yaml.FullLoader)
-mol_encoder = GraphTransformer(**config["model"]).to('cuda:0')
+mol_encoder = GraphTransformer(**config["model"]).to(device)
 decoder = Decoder(mol_encoder,atom_dim, hid_dim, n_layers, n_heads, pf_dim, DecoderLayer, SelfAttention,dropout, device)
 model = Predictor(encoder, decoder, device).to(device)
 def evaluate(true,pred_label,pred_score):
@@ -65,7 +65,7 @@ def _validate(model, valid_loader):
         valid_loss /= counter
         ACC, precision, recall, f1, auc, mcc, sensitivity, specificity, AUPR=evaluate(True_Label, Predict_Label,Predict_Scores)
     return valid_loss,ACC, precision, recall, f1, auc, mcc, sensitivity, specificity, AUPR,True_Label, Predict_Label,Predict_Scores
-config = yaml.load(open("CellChem_test.yaml", "r"), Loader=yaml.FullLoader)  ##(eg:CellChem_test.yaml,CellChem_wo_test.yaml)
+config = yaml.load(open("CellChem.yaml", "r"), Loader=yaml.FullLoader)  ##(eg:CellChem_test.yaml,CellChem_wo_test.yaml)
 print(config)
 from dataset.Dataset import MoleculeDatasetWrapper
 dataset = MoleculeDatasetWrapper(config['batch_size'], **config['dataset']).get_dataset()

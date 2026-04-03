@@ -6,16 +6,11 @@ import anndata
 from rdkit import Chem
 from tqdm import tqdm
 
-# ==============================================================================
-# CONFIGURATION
-# ==============================================================================
 CONFIG = {
-    # Path to the FULL dataset (ensure this contains all drugs, not just training split)
     "source_data_path": "../../CellChem_pretrain/data/clue_cp_level5_prepared.h5ad", 
     
-    # Output Directory
     "output_dir": ".",
-    "metadata_save_dir": "./save/embeddings_output", # Directory for analysis metadata
+    "metadata_save_dir": "./save/embeddings_output",
     
     # Custom Molecules to inject
     "custom_molecules": {
@@ -44,15 +39,12 @@ def standardize_smiles_strict(smi):
         return None
     try:
         smi_str = str(smi)
-        # 1. Desalt
         if '.' in smi_str:
             fragments = smi_str.split('.')
             largest_frag = max(fragments, key=len)
             smi_to_use = largest_frag
         else:
             smi_to_use = smi_str
-            
-        # 2. Canonicalize
         mol = Chem.MolFromSmiles(smi_to_use)
         if mol: 
             return Chem.MolToSmiles(mol, isomericSmiles=True)
@@ -61,10 +53,8 @@ def standardize_smiles_strict(smi):
     return None
 
 def main():
-    # 1. Load Data
     print(f"Loading source data from {CONFIG['source_data_path']}...")
     if not os.path.exists(CONFIG['source_data_path']):
-        # Fallback check
         alt_path = "../source/data/clue_cp_level5_prepared.h5ad"
         if os.path.exists(alt_path):
             CONFIG['source_data_path'] = alt_path
@@ -81,15 +71,9 @@ def main():
         df = adata.obs[['canonical_smiles', 'pert_id', 'moa', 'target']].copy()
 
     print(f"Processing {len(df)} records...")
-
-    # 2. Standardize SMILES (Strict)
     tqdm.pandas(desc="Standardizing SMILES")
     df['clean_smiles'] = df['canonical_smiles'].progress_apply(standardize_smiles_strict)
-    
-    # Drop invalid entries
     df_clean = df.dropna(subset=['clean_smiles'])
-    
-    # 3. Aggregate Metadata
     print("Aggregating metadata by clean SMILES...")
     
     def agg_func(x):
@@ -101,28 +85,24 @@ def main():
         'pert_id': agg_func,
         'moa': agg_func,
         'target': agg_func,
-        'canonical_smiles': 'first' # Keep one original raw SMILES for reference
+        'canonical_smiles': 'first'
     }).reset_index()
     
-    # Rename for consistency
     meta_df = meta_df.rename(columns={
         'canonical_smiles': 'original_smiles', 
-        'clean_smiles': 'canonical_smiles' # This will be the key
+        'clean_smiles': 'canonical_smiles'
     })
 
-    # 4. Inject Custom Molecules
     print("Injecting custom molecules...")
     new_rows = []
     existing_smiles = set(meta_df['canonical_smiles'])
-    custom_map = {} # For JSON output
+    custom_map = {} 
 
     for name, info in CONFIG["custom_molecules"].items():
         clean_smi = standardize_smiles_strict(info['smiles'])
         
         if clean_smi:
             custom_map[name] = clean_smi
-            
-            # Only add to metadata if not present (or force add if you prefer)
             if clean_smi not in existing_smiles:
                 new_rows.append({
                     'canonical_smiles': clean_smi,
@@ -140,9 +120,6 @@ def main():
     if new_rows:
         meta_df = pd.concat([meta_df, pd.DataFrame(new_rows)], ignore_index=True)
 
-    # 5. Save Outputs
-    
-    # A. Save JSON list for Prediction
     print("Saving SMILES list for prediction...")
     final_smiles_list = sorted(meta_df['canonical_smiles'].unique().tolist())
     
@@ -156,7 +133,6 @@ def main():
         json.dump(json_output, f, indent=2)
     print(f"  -> Saved {json_path} ({len(final_smiles_list)} molecules)")
 
-    # B. Save CSV for Analysis
     print("Saving Metadata CSV for analysis...")
     os.makedirs(CONFIG["metadata_save_dir"], exist_ok=True)
     csv_path = os.path.join(CONFIG["metadata_save_dir"], "reference_metadata.csv")

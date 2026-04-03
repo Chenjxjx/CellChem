@@ -25,8 +25,10 @@ num_chirality_tag = 3
 num_bond_type = 5 # including aromatic and self-loop edge
 num_bond_direction = 3 
 
-def load_tensor(file_name, dtype):
-    return [dtype(d).to('cuda:0') for d in np.load(file_name + '.npy',allow_pickle=True)]
+def load_tensor(file_name, dtype, device=None):
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    return [dtype(d).to(device) for d in np.load(file_name + '.npy', allow_pickle=True)]
 
 class SelfAttention(nn.Module):
     """ A class for attention mechanisn with QKV attention """

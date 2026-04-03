@@ -49,7 +49,6 @@ TARGET_PATHWAYS = {
     "DNA Repair": {"genes": ["TP53", "BAX", "ATM", "ATR", "BRCA1"], "color": "#f1c40f"} 
 }
 
-# ================= Helper Functions =================
 def get_canonical(smi):
     try:
         mol = Chem.MolFromSmiles(smi)
@@ -92,7 +91,6 @@ def load_metadata_clean(meta_path):
     except Exception: pass
     return None
 
-# ================= Data Loading =================
 def load_all_drugs_mean(cell_idx, vocab):
     print("Loading ALL drugs data...")
     fold_preds = []
@@ -135,7 +133,6 @@ def load_target_folds(target_canon, cell_idx):
         except ValueError: continue
     return np.array(matrix_target)
 
-# ================= Plotting Functions (PDF Ready) =================
 
 def plot_correlation_dist(corr_df):
     plt.figure(figsize=(10, 8)) 
@@ -201,8 +198,6 @@ def plot_moa_prediction(corr_df):
 
 def plot_robust_volcano_pub(df):
     plt.figure(figsize=(12, 10))
-    
-    # 背景点 (深灰，半透明)
     bg_df = df[(df['mean_score'] > -4) & (df['mean_score'] < 5)]
     sns.scatterplot(
         data=bg_df, x='mean_score', y='neg_log_p', 
@@ -261,8 +256,6 @@ def plot_gsea_bubble_pub(gsea_res):
         term = term.replace('Ubiquitin-Dependent Protein Catabolic Process', 'Ubiquitin-Dep. Catabolism')
         return term
     plot_df['Term_Clean'] = plot_df['Term_Clean'].apply(abbreviate_term)
-    # -------------------------------------------------------
-
     plot_df['FDR q-val'] = pd.to_numeric(plot_df['FDR q-val'], errors='coerce')
     plot_df['Significance'] = -np.log10(plot_df['FDR q-val'].fillna(1.0) + 1e-10)
     plt.figure(figsize=(10, 8)) 
@@ -278,7 +271,6 @@ def plot_gsea_bubble_pub(gsea_res):
         edgecolor='black', linewidth=1.5
     )
 
-    # 5. 样式调整
     plt.axvline(0, color='black', ls='-', alpha=0.3)
     plt.grid(axis='x', linestyle='--', alpha=0.5)
     
@@ -288,8 +280,6 @@ def plot_gsea_bubble_pub(gsea_res):
     
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
-    
-    # 6. Colorbar
     cbar = plt.colorbar(sm, ax=ax, orientation='vertical', pad=0.02, aspect=30)
     cbar.set_label("NES", fontsize=16)
     cbar.ax.tick_params(labelsize=14)
@@ -307,7 +297,7 @@ def plot_gsea_bubble_pub(gsea_res):
     plt.subplots_adjust(left=0.45, right=0.85, top=0.9, bottom=0.1)
     plt.savefig(os.path.join(SAVE_DIR, "gsea_bubble.pdf"), format='pdf', bbox_inches='tight')
     plt.close()
-# ================= Main =================
+
 def main():
     print(f"Loading Vocab from {VOCAB_PATH}...")
     vocab = GeneVocab.from_file(VOCAB_PATH)
@@ -345,7 +335,6 @@ def main():
     plot_correlation_dist(df_corr)
     plot_moa_prediction(df_corr)
 
-    # 2. Robust Volcano Analysis
     print("Reloading folds for robust statistics...")
     matrix_target = load_target_folds(target_canon, TARGET_CELL_INDEX)
     if matrix_target.size == 0: return
@@ -364,7 +353,6 @@ def main():
     print("Plotting Volcano (PDF)...")
     plot_robust_volcano_pub(df_res)
     
-    # 3. GSEA Analysis
     print("Running GSEA...")
     jitter = np.random.normal(0, 1e-6, size=len(df_res))
     df_res['rank_metric'] = df_res['mean_score'] + jitter

@@ -5,7 +5,7 @@ from tqdm import tqdm
 import sklearn.metrics
 import sklearn
 config = yaml.load(open("test.yaml", "r"), Loader=yaml.FullLoader)
-device = 'cuda:0'
+device = config.get('gpu', 'cuda' if torch.cuda.is_available() else 'cpu')
 model = SMILES_CMAP_CL(**config["model"]).to(device)
 def evaluate(true,pred_label,pred_score):
     ACC = sklearn.metrics.accuracy_score(true, pred_label, normalize=True, sample_weight=None)

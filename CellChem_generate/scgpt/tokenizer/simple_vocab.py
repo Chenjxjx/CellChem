@@ -3,9 +3,10 @@ from typing import Dict, Iterable, List, Optional, Union
 
 class SimpleVocab:
     """
-    轻量级替代 torchtext.vocab.Vocab，满足本项目用到的最小接口：
+    Lightweight replacement for torchtext.vocab.Vocab that provides the
+    minimal interface used by this project:
     - `__contains__`, `__getitem__`, `__len__`
-    - `__call__` 映射一组 token -> indices
+    - `__call__` maps a sequence of tokens -> indices
     - `append_token`, `insert_token`
     - `set_default_index`, `get_stoi`
     """
@@ -60,10 +61,10 @@ class SimpleVocab:
             self._itos.append(token)
 
     def insert_token(self, token: str, index: int) -> None:
-        # 仅用于从 dict 恢复时，确保是连续索引
+        # Only used when restoring from a dict to ensure contiguous indices.
         if token in self._stoi:
             return
-        # 扩容到 index
+        # Expand the vocabulary up to the requested index.
         while len(self._itos) < index:
             placeholder = f"<unk_{len(self._itos)}>"
             self._itos.append(placeholder)

@@ -73,7 +73,7 @@ class SmilesnCmap(object):
         try:
             config_file = './config_mg.yaml'
             config = yaml.load(open(config_file, "r"), Loader=yaml.FullLoader)
-            state_dict = torch.load('./pertain_model_pt/without_perturb.pt',map_location='cuda:0')
+            state_dict = torch.load('./pertain_model_pt/without_perturb.pt', map_location=self.device)
             model.load_state_dict(state_dict)
             print("Loaded pre-trained model with success.")
         except FileNotFoundError:
@@ -103,7 +103,7 @@ class SmilesnCmap(object):
 
         config_file = './config_mg.yaml'
         config = yaml.load(open(config_file, "r"), Loader=yaml.FullLoader)
-        mol_encoder = GraphTransformer(**config["model"]).to('cuda:0')
+        mol_encoder = GraphTransformer(**config["model"]).to(self.device)
         mol_encoder = self._load_pre_trained_weights(mol_encoder)
         decoder = Decoder(mol_encoder,atom_dim, hid_dim, n_layers, n_heads, pf_dim, DecoderLayer, SelfAttention,dropout, self.device)
         model = Predictor(encoder, decoder, self.device).to(self.device)

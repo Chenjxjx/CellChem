@@ -42,8 +42,12 @@ class Attention(nn.Module):
         self.out = nn.Sequential(
             nn.Linear(hid_dim, hid_dim),
             nn.Dropout(dropout))
-            
-        self.scale = torch.sqrt(torch.FloatTensor([hid_dim // n_heads])).to('cuda')
+
+        self.register_buffer(
+            "scale",
+            torch.sqrt(torch.FloatTensor([hid_dim // n_heads])),
+            persistent=False,
+        )
 
     def forward(self, query, key, value, mask=None):
         """ 

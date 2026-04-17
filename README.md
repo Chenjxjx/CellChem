@@ -73,6 +73,8 @@ Place downloaded `source/data` folder into `CellChem_pretrain/`
 2. **Perturbation Profile Pre-training:** `CellChem_pretrain/perturb_pretrain/pretrain_perturb.py`
 3. **Chemical-Omics Multi-modal Pre-training:** `CellChem_pretrain/CellChem/examples/mutimodel.py`
 
+**Expected Run Time**: Approximately 72 hours for the full pre-training process on an NVIDIA A800 GPU.
+
 #### Data/Model Setup
 
 Due to the large size of data and model files, please place them as follows:
@@ -112,7 +114,6 @@ CPI/perturb_and_sequence/run_CellChem.py
 CPI/perturb_and_sequence/run_CellChem_wo.py
 ```
 
-**Expected Run Time**: Approximately 72 hours for the full pre-training process on an NVIDIA A800 GPU.
 
 #### Inference with Pre-trained Models
 
@@ -131,10 +132,6 @@ Run the appropriate test script:
 
 - `test.py` (for CellChem)
 
-Molecular Graph to Perturbation Profiles (Generation)
-- Demo Task: Generating transcriptomic profiles for 8,981 molecules in a single cell type.
-- Expected Run Time: ~28 seconds on an NVIDIA L40 GPU.
-- Expected Output: An .h5ad file containing the predicted expression matrices.
 ---
 
 ### 🧬 Generation Model: Molecular Graph to Perturbation Profiles
@@ -166,6 +163,10 @@ Download and place the following pre-trained models:
 | Cell Type Split | `source/save/dev_clue-Jan14-04-51` | `CellChem_generate/save/dev_clue-Jan14-04-51` |
 
 **Output:** Predicted transcriptome data for traditional Chinese medicine (TCM) compounds is saved in `CellChem_generate/data_generate/herb_output_new_category.h5ad`.
+
+Molecular Graph to Perturbation Profiles (Generation)
+- Demo Task: Generating transcriptomic profiles for 8,981 molecules in a single cell type.
+- Expected Run Time: ~28 seconds on an NVIDIA L40 GPU.
 
 ---
 

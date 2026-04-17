@@ -47,6 +47,11 @@ pip install 'rdkit<2024' easydict IPython
 pip install scikit-learn
 pip install fair-esm
 ```
+## System Requirements
+- **Operating System**: Rocky Linux 8.8 (Green Obsidian) (Tested on this version; compatible with other RHEL-based distributions).
+- **Inference/Generation**: Can be performed on NVIDIA L40 or similar enterprise-grade GPUs.
+
+**Typical install time**: ~20-30 minutes (depending on the network speed and pre-configured environment).
 
 ## 📦 Data Download
 
@@ -107,6 +112,8 @@ CPI/perturb_and_sequence/run_CellChem.py
 CPI/perturb_and_sequence/run_CellChem_wo.py
 ```
 
+**Expected Run Time**: Approximately 72 hours for the full pre-training process on an NVIDIA A800 GPU.
+
 #### Inference with Pre-trained Models
 
 To use pre-trained models for inference directly:
@@ -124,6 +131,10 @@ Run the appropriate test script:
 
 - `test.py` (for CellChem)
 
+Molecular Graph to Perturbation Profiles (Generation)
+- Demo Task: Generating transcriptomic profiles for 8,981 molecules in a single cell type.
+- Expected Run Time: ~28 seconds on an NVIDIA L40 GPU.
+- Expected Output: An .h5ad file containing the predicted expression matrices.
 ---
 
 ### 🧬 Generation Model: Molecular Graph to Perturbation Profiles

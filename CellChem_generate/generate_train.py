@@ -61,7 +61,7 @@ hyperparameter_defaults = dict(
     seed=2024,
     dataset_name="clue",
     do_train=True,
-    load_model="../CellChem_pretrain/CellChem/save/dev_clue-May20-00-03/",
+    load_model="../CellChem_pretrain/CellChem/save/dev_clue-May23-20-47/",
     load_mol_model="../CellChem_pretrain/mol_gt_pretrain/ckpt/May08_16-21-26/checkpoints",
     adata_path="data_generate/clue_cp_level5_prepared_with_cell_rep_generate_random_train.h5ad",  ###(scaffold,celltype)
     mask_ratio=0.0, 
@@ -77,7 +77,7 @@ hyperparameter_defaults = dict(
     nhead=4,
     dropout=0.0,
     schedule_ratio=0.97,
-    save_eval_interval=2,  
+    save_eval_interval=10,  
     log_interval=100,
     fast_transformer=True,
     pre_norm=True,
@@ -88,7 +88,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--scenario",
     type=str,
-    choices=["random", "celltype", "scaffold"],
+    choices=["random", "celltype", "scaffold", "scaffold_cold", "celltype_cold"],
     default=None,
     help="Select training split scenario: random/celltype/scaffold",
 )
@@ -106,6 +106,8 @@ scenario_to_adata = {
     "random": "data_generate/clue_cp_level5_prepared_with_cell_rep_generate_random_train.h5ad",
     "celltype": "data_generate/clue_cp_level5_prepared_with_cell_rep_generate_celltype_train.h5ad",
     "scaffold": "data_generate/clue_cp_level5_prepared_with_cell_rep_generate_scaffold_train.h5ad",
+    "scaffold_cold": "data_generate/clue_cp_level5_prepared_with_cell_rep_generate_scaffold_train.h5ad",
+    "celltype_cold": "data_generate/clue_cp_level5_prepared_with_cell_rep_generate_cold_celltype_train.h5ad",
 }
 if args.scenario is not None:
     wandb.config.update({"adata_path": scenario_to_adata[args.scenario]}, allow_val_change=True)
@@ -141,7 +143,9 @@ DSBN = True  # Domain-spec batchnorm
 explicit_zero_prob = True  # whether explicit bernoulli for zeros
 
 dataset_name = config.dataset_name
-save_dir = Path(f"./save/dev_{dataset_name}-{time.strftime('%b%d-%H-%M')}/")
+mask_ratio = config.mask_ratio
+mask_value = -1
+save_dir = Path(f"./save_cold_start/dev_{dataset_name}-{args.scenario}-{time.strftime('%b%d-%H-%M')}/")
 save_dir.mkdir(parents=True, exist_ok=True)
 print(f"save to {save_dir}")
 # save the whole script to the dir
@@ -301,10 +305,6 @@ def prepare_data(sort_seq_batch=False) -> Tuple[Dict[str, torch.Tensor], Dict[st
         tokenized_valid["genes"],
     )
     input_values_train, input_values_valid = masked_values_train, masked_values_valid
-    target_values_train, target_values_valid = (
-        tokenized_train["values"],
-        tokenized_valid["values"],
-    )
 
     tensor_batch_labels_train = torch.from_numpy(train_batch_labels).long()
     tensor_batch_labels_valid = torch.from_numpy(valid_batch_labels).long()
@@ -317,7 +317,6 @@ def prepare_data(sort_seq_batch=False) -> Tuple[Dict[str, torch.Tensor], Dict[st
         input_gene_ids_train = input_gene_ids_train[train_sort_ids]
         input_values_train = input_values_train[train_sort_ids]  ###control
         true_values_train = train_data[train_sort_ids]
-        target_values_train = target_values_train[train_sort_ids]
         tensor_batch_labels_train = tensor_batch_labels_train[train_sort_ids]
         input_smiles_train = input_smiles_train[train_sort_ids]
 
@@ -325,7 +324,6 @@ def prepare_data(sort_seq_batch=False) -> Tuple[Dict[str, torch.Tensor], Dict[st
         input_gene_ids_valid = input_gene_ids_valid[valid_sort_ids]
         input_values_valid = input_values_valid[valid_sort_ids]
         true_values_valid = valid_data[valid_sort_ids]
-        target_values_valid = target_values_valid[valid_sort_ids]
         tensor_batch_labels_valid = tensor_batch_labels_valid[valid_sort_ids]
         input_smiles_valid = input_smiles_valid[valid_sort_ids]
 
@@ -333,7 +331,6 @@ def prepare_data(sort_seq_batch=False) -> Tuple[Dict[str, torch.Tensor], Dict[st
         "gene_ids": input_gene_ids_train,
         "values": input_values_train,
         "true_label":true_values_train,   ####true
-        "target_values": target_values_train,
         "batch_labels": tensor_batch_labels_train,
         "smiles": input_smiles_train,
     }
@@ -341,7 +338,6 @@ def prepare_data(sort_seq_batch=False) -> Tuple[Dict[str, torch.Tensor], Dict[st
         "gene_ids": input_gene_ids_valid,
         "values": input_values_valid,
         "true_label":true_values_valid,   ####true
-        "target_values": target_values_valid,
         "batch_labels": tensor_batch_labels_valid,
         "smiles": input_smiles_valid,
     }
@@ -479,8 +475,6 @@ model = Generation(model_scGPT,graphtransformer).to(device)
 
 wandb.watch(model)
 
-backbone_params = list(model.scgpt.parameters())
-head_params = list(model.mol_encoder.parameters()) + list(model.decoder.parameters())
 
 # ---------------- Strict K-Fold support ----------------
 # Snapshot the initial weights AFTER loading pretrained weights.
@@ -592,17 +586,16 @@ import numpy as np
 from sklearn.metrics import ndcg_score
 
 def batch_ndcg(label_test, label_predict):
-    sort_indices = torch.argsort(label_test, dim=1, descending=True)  
-
-    sorted_true = torch.gather(label_test, 1, sort_indices)
-    sorted_pred = torch.gather(label_predict, 1, sort_indices)
+    pred_indices = torch.argsort(label_predict, dim=1, descending=True)
+    true_by_pred = torch.gather(label_test, 1, pred_indices)
+    ideal_true = torch.sort(label_test, dim=1, descending=True)[0]
 
     batch_ndcg_scores = torch.zeros(label_test.size(0), device=label_test.device)
     
     for i in range(label_test.size(0)):
         ranks = torch.arange(2, label_test.size(1)+2, device=label_test.device)
-        dcg = (sorted_true[i] / torch.log2(ranks)).sum()
-        ideal_dcg = (torch.sort(sorted_true[i], descending=True)[0] / torch.log2(ranks)).sum()
+        dcg = (true_by_pred[i] / torch.log2(ranks)).sum()
+        ideal_dcg = (ideal_true[i] / torch.log2(ranks)).sum()
         batch_ndcg_scores[i] = dcg / (ideal_dcg + 1e-8)  
     return batch_ndcg_scores
 
@@ -666,20 +659,19 @@ def train(model: nn.Module, loader: DataLoader) -> None:
         input_gene_ids = batch_data["gene_ids"].to(device)
         input_values = batch_data["values"].to(device)
         true_values = batch_data["true_label"].to(device)
-        target_values = batch_data["target_values"].to(device)
         batch_labels = batch_data["batch_labels"].to(device)
         graphs = batch_data["graph"].to(device)
         src_key_padding_mask = input_gene_ids.eq(vocab[pad_token])
-        with torch.cuda.amp.autocast(enabled=config.amp):
+        with torch.cuda.amp.autocast(enabled=config.amp,dtype=torch.bfloat16):
             cmap_embedding,mol_embedding, cell_mol_tilde  = model(
                 input_gene_ids,
-                target_values,
+                input_values,
                 src_key_padding_mask,
                 graphs,  
             )
             mol_embedding = F.normalize(mol_embedding, dim=1)
             cmap_embedding = F.normalize(cmap_embedding, dim=1)
-            gene_means_1 = cell_mol_tilde[:,1:]
+            gene_means_1 = cell_mol_tilde[:,1:].float()
             #loss_func = torch.nn.MSELoss()
             loss = mixed_loss(gene_means_1, true_values, src_key_padding_mask,alpha_cos=1.0, alpha_huber=0.1, huber_beta=1.0)
             #loss = loss_func(gene_means_1, true_values)
@@ -778,23 +770,22 @@ def evaluate(model: nn.Module, loader: DataLoader) -> float:
             true_values = batch_data["true_label"].to(device)
             input_gene_ids = batch_data["gene_ids"].to(device)
             input_values = batch_data["values"].to(device)
-            target_values = batch_data["target_values"].to(device)
             batch_labels = batch_data["batch_labels"].to(device)
             graphs = batch_data["graph"].to(device)
 
             
             src_key_padding_mask = input_gene_ids.eq(vocab[pad_token])
-            with torch.cuda.amp.autocast(enabled=config.amp):
+            with torch.cuda.amp.autocast(enabled=config.amp,dtype=torch.bfloat16):
                 cmap_embedding,mol_embedding, cell_mol_tilde  = model(
                     input_gene_ids,
-                    target_values,
+                    input_values,
                     src_key_padding_mask,
                     graphs,  
                 )
     
                 mol_embedding = F.normalize(mol_embedding, dim=1)
                 cmap_embedding = F.normalize(cmap_embedding, dim=1)
-                gene_means_1 = cell_mol_tilde[:,1:]
+                gene_means_1 = cell_mol_tilde[:,1:].float()
                 #loss_func = torch.nn.MSELoss()
                 #loss = loss_func(gene_means_1, true_values)
                 loss = mixed_loss(gene_means_1, true_values, src_key_padding_mask,alpha_cos=1.0, alpha_huber=0.1, huber_beta=1.0)
